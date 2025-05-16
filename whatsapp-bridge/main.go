@@ -405,6 +405,12 @@ func extractMediaInfo(msg *waProto.Message) (mediaType string, filename string, 
 			doc.GetURL(), doc.GetMediaKey(), doc.GetFileSHA256(), doc.GetFileEncSHA256(), doc.GetFileLength()
 	}
 
+	// Check for sticker message
+	if sticker := msg.GetStickerMessage(); sticker != nil {
+		return "sticker", "sticker_" + time.Now().Format("20060102_150405") + ".webp",
+			sticker.GetURL(), sticker.GetMediaKey(), sticker.GetFileSHA256(), sticker.GetFileEncSHA256(), sticker.GetFileLength()
+	}
+
 	return "", "", "", nil, nil, nil, 0
 }
 
@@ -626,6 +632,8 @@ func downloadMedia(client *whatsmeow.Client, messageStore *MessageStore, message
 		waMediaType = whatsmeow.MediaAudio
 	case "document":
 		waMediaType = whatsmeow.MediaDocument
+	case "sticker":
+		waMediaType = whatsmeow.MediaImage // Stickers are handled as images
 	default:
 		return false, "", "", "", fmt.Errorf("unsupported media type: %s", mediaType)
 	}
@@ -640,8 +648,8 @@ func downloadMedia(client *whatsmeow.Client, messageStore *MessageStore, message
 		MediaType:     waMediaType,
 	}
 
-	// Download the media using whatsmeow client
-	mediaData, err := client.Download(downloader)
+	// Download the media using whatsmeow client - Update to use context
+	mediaData, err := client.Download(context.Background(), downloader)
 	if err != nil {
 		return false, "", "", "", fmt.Errorf("failed to download media: %v", err)
 	}
@@ -800,14 +808,17 @@ func main() {
 		return
 	}
 
-	container, err := sqlstore.New("sqlite3", "file:store/whatsapp.db?_foreign_keys=on", dbLog)
+	// Create a context
+	ctx := context.Background()
+
+	container, err := sqlstore.New(ctx, "sqlite3", "file:store/whatsapp.db?_foreign_keys=on", dbLog)
 	if err != nil {
 		logger.Errorf("Failed to connect to database: %v", err)
 		return
 	}
 
 	// Get device store - This contains session information
-	deviceStore, err := container.GetFirstDevice()
+	deviceStore, err := container.GetFirstDevice(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// No device exists, create one
@@ -988,7 +999,7 @@ func GetChatName(client *whatsmeow.Client, messageStore *MessageStore, jid types
 		logger.Infof("Getting name for contact: %s", chatJID)
 
 		// Just use contact info (full name)
-		contact, err := client.Store.Contacts.GetContact(jid)
+		contact, err := client.Store.Contacts.GetContact(context.Background(), jid)
 		if err == nil && contact.FullName != "" {
 			name = contact.FullName
 		} else if sender != "" {

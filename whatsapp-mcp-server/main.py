@@ -235,10 +235,13 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
     file_path = whatsapp_download_media(message_id, chat_jid)
     
     if file_path:
+        # Adaugă prefixul file:// la calea fișierului
+        file_url = f"file://{file_path}"
         return {
             "success": True,
             "message": "Media downloaded successfully",
-            "file_path": file_path
+            "file_path": file_path,
+            "file_url": file_url
         }
     else:
         return {

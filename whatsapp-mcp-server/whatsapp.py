@@ -747,7 +747,9 @@ def download_media(message_id: str, chat_jid: str) -> Optional[str]:
             result = response.json()
             if result.get("success", False):
                 path = result.get("path")
-                print(f"Media downloaded successfully: {path}")
+                # Adăugăm prefixul file:// pentru afișare
+                file_url = f"file://{path}"
+                print(f"Media downloaded successfully: {file_url}")
                 return path
             else:
                 print(f"Download failed: {result.get('message', 'Unknown error')}")
