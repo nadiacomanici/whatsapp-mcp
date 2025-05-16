@@ -230,7 +230,7 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
         chat_jid: The JID of the chat containing the message
     
     Returns:
-        A dictionary containing success status, a status message, and the file path if successful
+        A dictionary containing success status, a status message, and the file URL with file:// prefix
     """
     file_path = whatsapp_download_media(message_id, chat_jid)
     
@@ -240,8 +240,7 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
         return {
             "success": True,
             "message": "Media downloaded successfully",
-            "file_path": file_path,
-            "file_url": file_url
+            "url": file_url
         }
     else:
         return {
