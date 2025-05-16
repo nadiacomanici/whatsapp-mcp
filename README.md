@@ -2,7 +2,7 @@
 
 This is a Model Context Protocol (MCP) server for WhatsApp.
 
-> **Note**: This is a personal fork of the [original WhatsApp MCP project](https://github.com/lharries/whatsapp-mcp) by lharries.
+> **Note**: This is a personal private fork of the [original WhatsApp MCP project](https://github.com/lharries/whatsapp-mcp) by lharries.
 
 With this you can search and read your personal Whatsapp messages (including images, videos, documents, and audio messages), search your contacts and send messages to either individuals or groups. You can also send media files including images, videos, documents, and audio messages.
 
@@ -29,8 +29,8 @@ Here's an example of what you can do when it's connected to Claude.
 1. **Clone this repository**
 
    ```bash
-   git clone https://github.com/cristip73/whatsapp-mcp.git
-   cd whatsapp-mcp
+   git clone https://github.com/cristip73/whatsapp-mcp-private.git
+   cd whatsapp-mcp-private
    ```
 
 2. **Run the WhatsApp bridge**
