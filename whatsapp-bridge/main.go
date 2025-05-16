@@ -239,12 +239,19 @@ func sendWhatsAppMessage(client *whatsmeow.Client, recipient string, message str
 			return false, fmt.Sprintf("Error reading media file: %v", err)
 		}
 
+		// Get file base name (without path)
+		fileName := filepath.Base(mediaPath)
+
 		// Determine media type and mime type based on file extension
-		fileExt := strings.ToLower(mediaPath[strings.LastIndex(mediaPath, ".")+1:])
+		fileExt := strings.ToLower(filepath.Ext(mediaPath))
+		if fileExt != "" && fileExt[0] == '.' {
+			fileExt = fileExt[1:] // Remove the leading dot
+		}
+
 		var mediaType whatsmeow.MediaType
 		var mimeType string
 
-		// Handle different media types
+		// Handle different media types with correct MIME types
 		switch fileExt {
 		// Image types
 		case "jpg", "jpeg":
@@ -276,10 +283,46 @@ func sendWhatsAppMessage(client *whatsmeow.Client, recipient string, message str
 			mediaType = whatsmeow.MediaVideo
 			mimeType = "video/quicktime"
 
+		// Document types with specific MIME types
+		case "pdf":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "application/pdf"
+		case "doc":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "application/msword"
+		case "docx":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+		case "xls":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "application/vnd.ms-excel"
+		case "xlsx":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+		case "ppt":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "application/vnd.ms-powerpoint"
+		case "pptx":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+		case "txt":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "text/plain"
+		case "csv":
+			mediaType = whatsmeow.MediaDocument
+			mimeType = "text/csv"
+
 		// Document types (for any other file type)
 		default:
 			mediaType = whatsmeow.MediaDocument
-			mimeType = "application/octet-stream"
+			// Try to detect MIME type from content
+			detectedType := http.DetectContentType(mediaData)
+			if strings.HasPrefix(detectedType, "application/octet-stream") && fileExt != "" {
+				// If detection fails and we have an extension, use a generic but appropriate fallback
+				mimeType = "application/" + fileExt
+			} else {
+				mimeType = detectedType
+			}
 		}
 
 		// Upload media to WhatsApp servers
@@ -346,7 +389,8 @@ func sendWhatsAppMessage(client *whatsmeow.Client, recipient string, message str
 			}
 		case whatsmeow.MediaDocument:
 			msg.DocumentMessage = &waProto.DocumentMessage{
-				Title:         proto.String(mediaPath[strings.LastIndex(mediaPath, "/")+1:]),
+				Title:         proto.String(fileName),
+				FileName:      proto.String(fileName),
 				Caption:       proto.String(message),
 				Mimetype:      proto.String(mimeType),
 				URL:           &resp.URL,
