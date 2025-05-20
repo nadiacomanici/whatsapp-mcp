@@ -1,7 +1,6 @@
 # Repo Guide
 
-This repository contains a WhatsApp Model Context Protocol implementation. The code is split into two
-main directories:
+This repository contains a WhatsApp Model Context Protocol implementation. The code is split into two main directories:
 
 - **whatsapp-bridge** – Go application built with the whatsmeow library. It connects to WhatsApp Web,
   stores messages in a SQLite database and exposes a small HTTP API used by the MCP server.
