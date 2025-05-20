@@ -203,7 +203,7 @@ type SendMessageRequest struct {
 }
 
 // Function to send a WhatsApp message
-func sendWhatsAppMessage(client *whatsmeow.Client, recipient string, message string, mediaPath string) (bool, string) {
+func sendWhatsAppMessage(client *whatsmeow.Client, messageStore *MessageStore, recipient string, message string, mediaPath string) (bool, string) {
 	if !client.IsConnected() {
 		return false, "Not connected to WhatsApp"
 	}
@@ -406,13 +406,111 @@ func sendWhatsAppMessage(client *whatsmeow.Client, recipient string, message str
 	}
 
 	// Send message
-	_, err = client.SendMessage(context.Background(), recipientJID, msg)
+	respInfo, err := client.SendMessage(context.Background(), recipientJID, msg)
 
 	if err != nil {
 		return false, fmt.Sprintf("Error sending message: %v", err)
 	}
 
-	return true, fmt.Sprintf("Message sent to %s", recipient)
+	// Store sent message
+	messageID := respInfo.ID
+	if messageID == "" {
+		messageID = whatsmeow.GenerateMessageID()
+	}
+	chatJID := recipientJID.String()
+	sender := ""
+	if client.Store != nil && client.Store.ID != nil {
+		sender = client.Store.ID.User
+	}
+	timestamp := time.Now() // Use current time for sent messages
+
+	// Determine media type and filename for storage
+	var storeMediaType, storeFilename string
+	var storeURL string
+	var storeMediaKey, storeFileSHA256, storeFileEncSHA256 []byte
+	var storeFileLength uint64
+
+	if mediaPath != "" {
+		// This is a media message, extract info from the uploaded response `resp`
+		// and the constructed `msg`
+		storeFilename = filepath.Base(mediaPath)
+		if uploadedResp, ok := respInfo.Resp.(*waProto.Message); ok { // Assuming respInfo.Resp contains the sent message proto
+			storeMediaType, _, storeURL, storeMediaKey, storeFileSHA256, storeFileEncSHA256, storeFileLength = extractMediaInfo(uploadedResp)
+			// If extractMediaInfo doesn't provide all details from the sent message,
+			// we might need to use details from the `resp` (UploadResponse) if available and relevant
+			// For example, if msg.ImageMessage is populated:
+			if msg.ImageMessage != nil {
+				storeMediaType = "image"
+				if msg.ImageMessage.URL != nil {
+					storeURL = *msg.ImageMessage.URL
+				}
+				storeMediaKey = msg.ImageMessage.MediaKey
+				storeFileSHA256 = msg.ImageMessage.FileSHA256
+				storeFileEncSHA256 = msg.ImageMessage.FileEncSHA256
+				if msg.ImageMessage.FileLength != nil {
+					storeFileLength = *msg.ImageMessage.FileLength
+				}
+			} else if msg.VideoMessage != nil {
+				storeMediaType = "video"
+				if msg.VideoMessage.URL != nil {
+					storeURL = *msg.VideoMessage.URL
+				}
+				storeMediaKey = msg.VideoMessage.MediaKey
+				storeFileSHA256 = msg.VideoMessage.FileSHA256
+				storeFileEncSHA256 = msg.VideoMessage.FileEncSHA256
+				if msg.VideoMessage.FileLength != nil {
+					storeFileLength = *msg.VideoMessage.FileLength
+				}
+			} else if msg.AudioMessage != nil {
+				storeMediaType = "audio"
+				if msg.AudioMessage.URL != nil {
+					storeURL = *msg.AudioMessage.URL
+				}
+				storeMediaKey = msg.AudioMessage.MediaKey
+				storeFileSHA256 = msg.AudioMessage.FileSHA256
+				storeFileEncSHA256 = msg.AudioMessage.FileEncSHA256
+				if msg.AudioMessage.FileLength != nil {
+					storeFileLength = *msg.AudioMessage.FileLength
+				}
+			} else if msg.DocumentMessage != nil {
+				storeMediaType = "document"
+				if msg.DocumentMessage.URL != nil {
+					storeURL = *msg.DocumentMessage.URL
+				}
+				storeMediaKey = msg.DocumentMessage.MediaKey
+				storeFileSHA256 = msg.DocumentMessage.FileSHA256
+				storeFileEncSHA256 = msg.DocumentMessage.FileEncSHA256
+				if msg.DocumentMessage.FileLength != nil {
+					storeFileLength = *msg.DocumentMessage.FileLength
+				}
+				if msg.DocumentMessage.FileName != nil {
+					storeFilename = *msg.DocumentMessage.FileName
+				}
+			}
+		}
+	}
+
+	err = messageStore.StoreMessage(
+		messageID,
+		chatJID,
+		sender,
+		message, // This is the caption or text message
+		timestamp,
+		true, // IsFromMe
+		storeMediaType,
+		storeFilename,
+		storeURL,
+		storeMediaKey,
+		storeFileSHA256,
+		storeFileEncSHA256,
+		storeFileLength,
+	)
+	if err != nil {
+		// Log error but don't fail the send operation
+		fmt.Printf("Error storing sent message: %v\n", err)
+	}
+
+	return true, fmt.Sprintf("Message sent to %s (ID: %s)", recipient, messageID)
 }
 
 // parsePhoneOrJID converts either a phone number or full JID string to a types.JID
@@ -942,7 +1040,7 @@ func startRESTServer(client *whatsmeow.Client, messageStore *MessageStore, port 
 		fmt.Println("Received request to send message", req.Message, req.MediaPath)
 
 		// Send the message
-		success, message := sendWhatsAppMessage(client, req.Recipient, req.Message, req.MediaPath)
+		success, message := sendWhatsAppMessage(client, messageStore, req.Recipient, req.Message, req.MediaPath)
 		fmt.Println("Message sent", success, message)
 		// Set response headers
 		w.Header().Set("Content-Type", "application/json")
