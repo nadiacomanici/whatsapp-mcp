@@ -767,3 +767,105 @@ def download_media(message_id: str, chat_jid: str) -> Optional[str]:
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         return None
+
+
+def create_group(name: str, participants: List[str]) -> Tuple[bool, str, Optional[str]]:
+    """Create a new WhatsApp group."""
+    try:
+        url = f"{WHATSAPP_API_BASE_URL}/create_group"
+        payload = {"name": name, "participants": participants}
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("success", False), result.get("message", ""), result.get("jid")
+        else:
+            return False, f"Error: HTTP {response.status_code} - {response.text}", None
+    except requests.RequestException as e:
+        return False, f"Request error: {str(e)}", None
+    except json.JSONDecodeError:
+        return False, f"Error parsing response: {response.text}", None
+
+
+def join_group_with_link(invite: str) -> Tuple[bool, str, Optional[str]]:
+    """Join a WhatsApp group via invite link."""
+    try:
+        url = f"{WHATSAPP_API_BASE_URL}/join_group"
+        payload = {"invite": invite}
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("success", False), result.get("message", ""), result.get("jid")
+        else:
+            return False, f"Error: HTTP {response.status_code} - {response.text}", None
+    except requests.RequestException as e:
+        return False, f"Request error: {str(e)}", None
+    except json.JSONDecodeError:
+        return False, f"Error parsing response: {response.text}", None
+
+
+def leave_group(jid: str) -> Tuple[bool, str]:
+    """Leave a WhatsApp group."""
+    try:
+        url = f"{WHATSAPP_API_BASE_URL}/leave_group"
+        payload = {"jid": jid}
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("success", False), result.get("message", "")
+        else:
+            return False, f"Error: HTTP {response.status_code} - {response.text}"
+    except requests.RequestException as e:
+        return False, f"Request error: {str(e)}"
+    except json.JSONDecodeError:
+        return False, f"Error parsing response: {response.text}"
+
+
+def update_group_participants(jid: str, action: str, participants: List[str]) -> Tuple[bool, str]:
+    """Manage participants in a WhatsApp group."""
+    try:
+        url = f"{WHATSAPP_API_BASE_URL}/update_group_participants"
+        payload = {"jid": jid, "action": action, "participants": participants}
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("success", False), result.get("message", "")
+        else:
+            return False, f"Error: HTTP {response.status_code} - {response.text}"
+    except requests.RequestException as e:
+        return False, f"Request error: {str(e)}"
+    except json.JSONDecodeError:
+        return False, f"Error parsing response: {response.text}"
+
+
+def set_group_name(jid: str, name: str) -> Tuple[bool, str]:
+    """Set WhatsApp group name."""
+    try:
+        url = f"{WHATSAPP_API_BASE_URL}/set_group_name"
+        payload = {"jid": jid, "name": name}
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("success", False), result.get("message", "")
+        else:
+            return False, f"Error: HTTP {response.status_code} - {response.text}"
+    except requests.RequestException as e:
+        return False, f"Request error: {str(e)}"
+    except json.JSONDecodeError:
+        return False, f"Error parsing response: {response.text}"
+
+
+def set_group_photo(jid: str, image_path: str) -> Tuple[bool, str]:
+    """Set WhatsApp group photo."""
+    try:
+        url = f"{WHATSAPP_API_BASE_URL}/set_group_photo"
+        payload = {"jid": jid, "image_path": image_path}
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("success", False), result.get("message", "")
+        else:
+            return False, f"Error: HTTP {response.status_code} - {response.text}"
+    except requests.RequestException as e:
+        return False, f"Request error: {str(e)}"
+    except json.JSONDecodeError:
+        return False, f"Error parsing response: {response.text}"

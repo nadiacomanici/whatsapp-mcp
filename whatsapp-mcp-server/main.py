@@ -12,7 +12,13 @@ from whatsapp import (
     send_message as whatsapp_send_message,
     send_file as whatsapp_send_file,
     send_audio_message as whatsapp_audio_voice_message,
-    download_media as whatsapp_download_media
+    download_media as whatsapp_download_media,
+    create_group as whatsapp_create_group,
+    join_group_with_link as whatsapp_join_group_with_link,
+    leave_group as whatsapp_leave_group,
+    update_group_participants as whatsapp_update_group_participants,
+    set_group_name as whatsapp_set_group_name,
+    set_group_photo as whatsapp_set_group_photo
 )
 
 # Initialize FastMCP server
@@ -247,6 +253,48 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
             "success": False,
             "message": "Failed to download media"
         }
+
+
+@mcp.tool()
+def create_group(name: str, participants: List[str]) -> Dict[str, Any]:
+    """Create a new WhatsApp group."""
+    success, message, jid = whatsapp_create_group(name, participants)
+    return {"success": success, "message": message, "jid": jid}
+
+
+@mcp.tool()
+def join_group_with_link(invite: str) -> Dict[str, Any]:
+    """Join a WhatsApp group using an invite link."""
+    success, message, jid = whatsapp_join_group_with_link(invite)
+    return {"success": success, "message": message, "jid": jid}
+
+
+@mcp.tool()
+def leave_group(jid: str) -> Dict[str, Any]:
+    """Leave a WhatsApp group."""
+    success, message = whatsapp_leave_group(jid)
+    return {"success": success, "message": message}
+
+
+@mcp.tool()
+def update_group_participants(jid: str, action: str, participants: List[str]) -> Dict[str, Any]:
+    """Add, remove, promote or demote participants in a WhatsApp group."""
+    success, message = whatsapp_update_group_participants(jid, action, participants)
+    return {"success": success, "message": message}
+
+
+@mcp.tool()
+def set_group_name(jid: str, name: str) -> Dict[str, Any]:
+    """Change a WhatsApp group's name."""
+    success, message = whatsapp_set_group_name(jid, name)
+    return {"success": success, "message": message}
+
+
+@mcp.tool()
+def set_group_photo(jid: str, image_path: str) -> Dict[str, Any]:
+    """Update the group's photo."""
+    success, message = whatsapp_set_group_photo(jid, image_path)
+    return {"success": success, "message": message}
 
 if __name__ == "__main__":
     # Initialize and run the server

@@ -415,6 +415,143 @@ func sendWhatsAppMessage(client *whatsmeow.Client, recipient string, message str
 	return true, fmt.Sprintf("Message sent to %s", recipient)
 }
 
+// parsePhoneOrJID converts either a phone number or full JID string to a types.JID
+func parsePhoneOrJID(id string) (types.JID, error) {
+	if strings.Contains(id, "@") {
+		return types.ParseJID(id)
+	}
+	return types.JID{User: id, Server: "s.whatsapp.net"}, nil
+}
+
+// createGroup creates a new WhatsApp group with the given name and participants
+func createGroup(client *whatsmeow.Client, name string, participants []string) (bool, string, string) {
+	if !client.IsConnected() {
+		return false, "Not connected to WhatsApp", ""
+	}
+
+	var partJIDs []types.JID
+	for _, p := range participants {
+		jid, err := parsePhoneOrJID(p)
+		if err != nil {
+			return false, fmt.Sprintf("invalid participant %s: %v", p, err), ""
+		}
+		partJIDs = append(partJIDs, jid)
+	}
+
+	req := whatsmeow.ReqCreateGroup{
+		Name:         name,
+		Participants: partJIDs,
+	}
+	groupInfo, err := client.CreateGroup(req)
+	if err != nil {
+		return false, fmt.Sprintf("failed to create group: %v", err), ""
+	}
+	return true, "group created", groupInfo.JID.String()
+}
+
+// joinGroupWithLink joins a group using an invite link
+func joinGroupWithLink(client *whatsmeow.Client, link string) (bool, string, string) {
+	if !client.IsConnected() {
+		return false, "Not connected to WhatsApp", ""
+	}
+	jid, err := client.JoinGroupWithLink(link)
+	if err != nil {
+		return false, fmt.Sprintf("failed to join group: %v", err), ""
+	}
+	return true, "joined group", jid.String()
+}
+
+// leaveGroup leaves the specified group
+func leaveGroup(client *whatsmeow.Client, groupJID string) (bool, string) {
+	if !client.IsConnected() {
+		return false, "Not connected to WhatsApp"
+	}
+	jid, err := types.ParseJID(groupJID)
+	if err != nil {
+		return false, fmt.Sprintf("invalid group JID: %v", err)
+	}
+	err = client.LeaveGroup(jid)
+	if err != nil {
+		return false, fmt.Sprintf("failed to leave group: %v", err)
+	}
+	return true, "left group"
+}
+
+// updateGroupParticipants adds/removes/promotes/demotes participants
+func updateGroupParticipants(client *whatsmeow.Client, groupJID, action string, participants []string) (bool, string) {
+	if !client.IsConnected() {
+		return false, "Not connected to WhatsApp"
+	}
+	jid, err := types.ParseJID(groupJID)
+	if err != nil {
+		return false, fmt.Sprintf("invalid group JID: %v", err)
+	}
+	var partJIDs []types.JID
+	for _, p := range participants {
+		pj, err := parsePhoneOrJID(p)
+		if err != nil {
+			return false, fmt.Sprintf("invalid participant %s: %v", p, err)
+		}
+		partJIDs = append(partJIDs, pj)
+	}
+
+	var change whatsmeow.ParticipantChange
+	switch strings.ToLower(action) {
+	case "add":
+		change = whatsmeow.ParticipantChangeAdd
+	case "remove":
+		change = whatsmeow.ParticipantChangeRemove
+	case "promote":
+		change = whatsmeow.ParticipantChangePromote
+	case "demote":
+		change = whatsmeow.ParticipantChangeDemote
+	default:
+		return false, "invalid action"
+	}
+
+	_, err = client.UpdateGroupParticipants(jid, partJIDs, change)
+	if err != nil {
+		return false, fmt.Sprintf("failed to update participants: %v", err)
+	}
+	return true, "participants updated"
+}
+
+// setGroupName changes the group name
+func setGroupName(client *whatsmeow.Client, groupJID, name string) (bool, string) {
+	if !client.IsConnected() {
+		return false, "Not connected to WhatsApp"
+	}
+	jid, err := types.ParseJID(groupJID)
+	if err != nil {
+		return false, fmt.Sprintf("invalid group JID: %v", err)
+	}
+	err = client.SetGroupName(jid, name)
+	if err != nil {
+		return false, fmt.Sprintf("failed to set group name: %v", err)
+	}
+	return true, "name updated"
+}
+
+// setGroupPhoto sets the group profile picture
+func setGroupPhoto(client *whatsmeow.Client, groupJID, path string) (bool, string) {
+	if !client.IsConnected() {
+		return false, "Not connected to WhatsApp"
+	}
+	jid, err := types.ParseJID(groupJID)
+	if err != nil {
+		return false, fmt.Sprintf("invalid group JID: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, fmt.Sprintf("failed to read image: %v", err)
+	}
+	_, err = client.SetGroupPhoto(jid, data)
+	if err != nil {
+		return false, fmt.Sprintf("failed to set group photo: %v", err)
+	}
+	return true, "photo updated"
+}
+
 // Extract media info from a message
 func extractMediaInfo(msg *waProto.Message) (mediaType string, filename string, url string, mediaKey []byte, fileSHA256 []byte, fileEncSHA256 []byte, fileLength uint64) {
 	if msg == nil {
@@ -532,6 +669,53 @@ type DownloadMediaResponse struct {
 	Message  string `json:"message"`
 	Filename string `json:"filename,omitempty"`
 	Path     string `json:"path,omitempty"`
+}
+
+// ----- Group management request/response types -----
+type CreateGroupRequest struct {
+	Name         string   `json:"name"`
+	Participants []string `json:"participants"`
+}
+
+type CreateGroupResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	JID     string `json:"jid,omitempty"`
+}
+
+type JoinGroupRequest struct {
+	Invite string `json:"invite"`
+}
+
+type JoinGroupResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	JID     string `json:"jid,omitempty"`
+}
+
+type LeaveGroupRequest struct {
+	JID string `json:"jid"`
+}
+
+type UpdateGroupParticipantsRequest struct {
+	JID          string   `json:"jid"`
+	Action       string   `json:"action"`
+	Participants []string `json:"participants"`
+}
+
+type SetGroupNameRequest struct {
+	JID  string `json:"jid"`
+	Name string `json:"name"`
+}
+
+type SetGroupPhotoRequest struct {
+	JID       string `json:"jid"`
+	ImagePath string `json:"image_path"`
+}
+
+type BasicResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }
 
 // Store additional media info in the database
@@ -824,6 +1008,144 @@ func startRESTServer(client *whatsmeow.Client, messageStore *MessageStore, port 
 			Filename: filename,
 			Path:     path,
 		})
+	})
+
+	// Handler for creating groups
+	http.HandleFunc("/api/create_group", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req CreateGroupRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+		if req.Name == "" {
+			http.Error(w, "Name is required", http.StatusBadRequest)
+			return
+		}
+		success, msg, jid := createGroup(client, req.Name, req.Participants)
+		w.Header().Set("Content-Type", "application/json")
+		if !success {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		json.NewEncoder(w).Encode(CreateGroupResponse{Success: success, Message: msg, JID: jid})
+	})
+
+	// Handler for joining groups with invite links
+	http.HandleFunc("/api/join_group", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req JoinGroupRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+		if req.Invite == "" {
+			http.Error(w, "Invite link is required", http.StatusBadRequest)
+			return
+		}
+		success, msg, jid := joinGroupWithLink(client, req.Invite)
+		w.Header().Set("Content-Type", "application/json")
+		if !success {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		json.NewEncoder(w).Encode(JoinGroupResponse{Success: success, Message: msg, JID: jid})
+	})
+
+	// Handler for leaving groups
+	http.HandleFunc("/api/leave_group", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req LeaveGroupRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+		if req.JID == "" {
+			http.Error(w, "Group JID is required", http.StatusBadRequest)
+			return
+		}
+		success, msg := leaveGroup(client, req.JID)
+		w.Header().Set("Content-Type", "application/json")
+		if !success {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		json.NewEncoder(w).Encode(BasicResponse{Success: success, Message: msg})
+	})
+
+	// Handler for updating group participants
+	http.HandleFunc("/api/update_group_participants", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req UpdateGroupParticipantsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+		if req.JID == "" || req.Action == "" {
+			http.Error(w, "Group JID and action are required", http.StatusBadRequest)
+			return
+		}
+		success, msg := updateGroupParticipants(client, req.JID, req.Action, req.Participants)
+		w.Header().Set("Content-Type", "application/json")
+		if !success {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		json.NewEncoder(w).Encode(BasicResponse{Success: success, Message: msg})
+	})
+
+	// Handler for setting group name
+	http.HandleFunc("/api/set_group_name", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req SetGroupNameRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+		if req.JID == "" || req.Name == "" {
+			http.Error(w, "Group JID and name are required", http.StatusBadRequest)
+			return
+		}
+		success, msg := setGroupName(client, req.JID, req.Name)
+		w.Header().Set("Content-Type", "application/json")
+		if !success {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		json.NewEncoder(w).Encode(BasicResponse{Success: success, Message: msg})
+	})
+
+	// Handler for setting group photo
+	http.HandleFunc("/api/set_group_photo", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req SetGroupPhotoRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+		if req.JID == "" || req.ImagePath == "" {
+			http.Error(w, "Group JID and image_path are required", http.StatusBadRequest)
+			return
+		}
+		success, msg := setGroupPhoto(client, req.JID, req.ImagePath)
+		w.Header().Set("Content-Type", "application/json")
+		if !success {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		json.NewEncoder(w).Encode(BasicResponse{Success: success, Message: msg})
 	})
 
 	// Start the server
