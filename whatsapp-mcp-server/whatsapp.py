@@ -73,7 +73,7 @@ def get_sender_name(sender_jid: str) -> str:
             cursor.execute("""
                 SELECT name
                 FROM chats
-                WHERE jid LIKE ?
+                WHERE jid LIKE ? AND jid NOT LIKE '%@g.us'
                 LIMIT 1
             """, (f"%{phone_part}%",))
             
