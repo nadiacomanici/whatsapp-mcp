@@ -17,10 +17,15 @@ import (
 	"syscall"
 	"time"
 
+	"bytes"
+	"image"
+	"image/jpeg"
+	// Also support png and gif for decoding, even if we only re-encode jpg
+	_ "image/gif"
+	_ "image/png"
+
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal"
-
-	"bytes"
 
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
@@ -633,10 +638,32 @@ func setGroupPhoto(client *whatsmeow.Client, groupJID, path string) (bool, strin
 	if err != nil {
 		return false, fmt.Sprintf("invalid group JID: %v", err)
 	}
-	data, err := os.ReadFile(path)
+	originalData, err := os.ReadFile(path)
 	if err != nil {
 		return false, fmt.Sprintf("failed to read image: %v", err)
 	}
+
+	data := originalData // Use original data by default
+
+	// Check file extension
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext == ".jpg" || ext == ".jpeg" {
+		// Attempt to decode and re-encode JPG
+		img, _, err := image.Decode(bytes.NewReader(originalData))
+		if err != nil {
+			fmt.Printf("setGroupPhoto: failed to decode JPG image %s: %v. Using original data.\n", path, err)
+		} else {
+			var buf bytes.Buffer
+			err = jpeg.Encode(&buf, img, nil) // Use default options
+			if err != nil {
+				fmt.Printf("setGroupPhoto: failed to re-encode JPG image %s: %v. Using original data.\n", path, err)
+			} else {
+				fmt.Printf("setGroupPhoto: successfully re-encoded JPG image %s\n", path)
+				data = buf.Bytes() // Use re-encoded data
+			}
+		}
+	}
+
 	_, err = client.SetGroupPhoto(jid, data)
 	if err != nil {
 		return false, fmt.Sprintf("failed to set group photo: %v", err)
