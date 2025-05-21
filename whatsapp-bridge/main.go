@@ -431,61 +431,55 @@ func sendWhatsAppMessage(client *whatsmeow.Client, messageStore *MessageStore, r
 	var storeFileLength uint64
 
 	if mediaPath != "" {
-		// This is a media message, extract info from the uploaded response `resp`
-		// and the constructed `msg`
+		// This is a media message, extract info from the constructed `msg`
 		storeFilename = filepath.Base(mediaPath)
-		if uploadedResp, ok := respInfo.Resp.(*waProto.Message); ok { // Assuming respInfo.Resp contains the sent message proto
-			storeMediaType, _, storeURL, storeMediaKey, storeFileSHA256, storeFileEncSHA256, storeFileLength = extractMediaInfo(uploadedResp)
-			// If extractMediaInfo doesn't provide all details from the sent message,
-			// we might need to use details from the `resp` (UploadResponse) if available and relevant
-			// For example, if msg.ImageMessage is populated:
-			if msg.ImageMessage != nil {
-				storeMediaType = "image"
-				if msg.ImageMessage.URL != nil {
-					storeURL = *msg.ImageMessage.URL
-				}
-				storeMediaKey = msg.ImageMessage.MediaKey
-				storeFileSHA256 = msg.ImageMessage.FileSHA256
-				storeFileEncSHA256 = msg.ImageMessage.FileEncSHA256
-				if msg.ImageMessage.FileLength != nil {
-					storeFileLength = *msg.ImageMessage.FileLength
-				}
-			} else if msg.VideoMessage != nil {
-				storeMediaType = "video"
-				if msg.VideoMessage.URL != nil {
-					storeURL = *msg.VideoMessage.URL
-				}
-				storeMediaKey = msg.VideoMessage.MediaKey
-				storeFileSHA256 = msg.VideoMessage.FileSHA256
-				storeFileEncSHA256 = msg.VideoMessage.FileEncSHA256
-				if msg.VideoMessage.FileLength != nil {
-					storeFileLength = *msg.VideoMessage.FileLength
-				}
-			} else if msg.AudioMessage != nil {
-				storeMediaType = "audio"
-				if msg.AudioMessage.URL != nil {
-					storeURL = *msg.AudioMessage.URL
-				}
-				storeMediaKey = msg.AudioMessage.MediaKey
-				storeFileSHA256 = msg.AudioMessage.FileSHA256
-				storeFileEncSHA256 = msg.AudioMessage.FileEncSHA256
-				if msg.AudioMessage.FileLength != nil {
-					storeFileLength = *msg.AudioMessage.FileLength
-				}
-			} else if msg.DocumentMessage != nil {
-				storeMediaType = "document"
-				if msg.DocumentMessage.URL != nil {
-					storeURL = *msg.DocumentMessage.URL
-				}
-				storeMediaKey = msg.DocumentMessage.MediaKey
-				storeFileSHA256 = msg.DocumentMessage.FileSHA256
-				storeFileEncSHA256 = msg.DocumentMessage.FileEncSHA256
-				if msg.DocumentMessage.FileLength != nil {
-					storeFileLength = *msg.DocumentMessage.FileLength
-				}
-				if msg.DocumentMessage.FileName != nil {
-					storeFilename = *msg.DocumentMessage.FileName
-				}
+		// Eliminat accesul la respInfo.Resp, folosim doar msg pentru extragere info
+		if msg.ImageMessage != nil {
+			storeMediaType = "image"
+			if msg.ImageMessage.URL != nil {
+				storeURL = *msg.ImageMessage.URL
+			}
+			storeMediaKey = msg.ImageMessage.MediaKey
+			storeFileSHA256 = msg.ImageMessage.FileSHA256
+			storeFileEncSHA256 = msg.ImageMessage.FileEncSHA256
+			if msg.ImageMessage.FileLength != nil {
+				storeFileLength = *msg.ImageMessage.FileLength
+			}
+		} else if msg.VideoMessage != nil {
+			storeMediaType = "video"
+			if msg.VideoMessage.URL != nil {
+				storeURL = *msg.VideoMessage.URL
+			}
+			storeMediaKey = msg.VideoMessage.MediaKey
+			storeFileSHA256 = msg.VideoMessage.FileSHA256
+			storeFileEncSHA256 = msg.VideoMessage.FileEncSHA256
+			if msg.VideoMessage.FileLength != nil {
+				storeFileLength = *msg.VideoMessage.FileLength
+			}
+		} else if msg.AudioMessage != nil {
+			storeMediaType = "audio"
+			if msg.AudioMessage.URL != nil {
+				storeURL = *msg.AudioMessage.URL
+			}
+			storeMediaKey = msg.AudioMessage.MediaKey
+			storeFileSHA256 = msg.AudioMessage.FileSHA256
+			storeFileEncSHA256 = msg.AudioMessage.FileEncSHA256
+			if msg.AudioMessage.FileLength != nil {
+				storeFileLength = *msg.AudioMessage.FileLength
+			}
+		} else if msg.DocumentMessage != nil {
+			storeMediaType = "document"
+			if msg.DocumentMessage.URL != nil {
+				storeURL = *msg.DocumentMessage.URL
+			}
+			storeMediaKey = msg.DocumentMessage.MediaKey
+			storeFileSHA256 = msg.DocumentMessage.FileSHA256
+			storeFileEncSHA256 = msg.DocumentMessage.FileEncSHA256
+			if msg.DocumentMessage.FileLength != nil {
+				storeFileLength = *msg.DocumentMessage.FileLength
+			}
+			if msg.DocumentMessage.FileName != nil {
+				storeFilename = *msg.DocumentMessage.FileName
 			}
 		}
 	}
