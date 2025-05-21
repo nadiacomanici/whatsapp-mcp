@@ -1,11 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/draw"
+	_ "image/gif" // Allow decoding GIFs
+	"image/jpeg"
+	_ "image/png" // Allow decoding PNGs
 	"math"
 	"math/rand"
 	"net/http"
@@ -17,23 +23,9 @@ import (
 	"syscall"
 	"time"
 
-	"bytes"
-	"fmt"
-	"image"
-	"image/draw"
-	_ "image/gif" // Allow decoding GIFs
-	"image/jpeg"
-	_ "image/png" // Allow decoding PNGs
-	"os"
-	"path/filepath"
-	"strings"
-	"syscall"
-	"time"
-
-	"github.com/nfnt/resize"
-
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal"
+	"github.com/nfnt/resize"
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/store/sqlstore"
