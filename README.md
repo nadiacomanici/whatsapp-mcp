@@ -21,7 +21,7 @@ Here's an example of what you can do when it's connected to Claude.
 - Go
 - Python 3.6+
 - Anthropic Claude Desktop app (or Cursor)
-- UV (Python package manager), install with `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- UV (Python package manager), install in VSCode Terminal > `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
 - FFmpeg (_optional_) - Only needed for audio messages. If you want to send audio files as playable WhatsApp voice messages, they must be in `.ogg` Opus format. With FFmpeg installed, the MCP server will automatically convert non-Opus audio files. Without FFmpeg, you can still send raw audio files using the `send_file` tool.
 
 ### Steps
@@ -29,7 +29,7 @@ Here's an example of what you can do when it's connected to Claude.
 1. **Clone this repository**
 
    ```bash
-   git clone https://github.com/cristip73/whatsapp-mcp.git
+   git clone https://github.com/nadiacomanici/whatsapp-mcp.git
    cd whatsapp-mcp
    ```
 
